@@ -1,10 +1,10 @@
 import {
   createProvider,
+  openAICompletionsApi,
   type ModelsStoreEntry,
   type Provider,
   type RefreshModelsContext,
-} from "@earendil-works/pi-ai";
-import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
+} from "@earendil-works/pi-ai/compat";
 import { loginWithApiKey, resolveApiKey, API_KEY_AUTH_NAME } from "./auth.ts";
 import { fetchVancineCatalog, httpDateFromTimestamp, type CatalogTransport } from "./catalog-client.ts";
 import { convertVancineCatalog } from "./catalog.ts";

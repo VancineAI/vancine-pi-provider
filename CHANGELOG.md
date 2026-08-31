@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-08-31
+
+### Fixed
+
+- Starting Pi after an npm install of this extension failed to load the package. The runtime imported `@earendil-works/pi-ai/api/openai-completions.lazy`, which Pi 0.84.4 does not expose as a virtual module. Runtime imports now use the Pi-supported `@earendil-works/pi-ai/compat` entry.
+
 ## [0.1.0] - 2026-08-31
 
 ### Added

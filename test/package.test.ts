@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -53,5 +53,18 @@ describe("package manifest", () => {
       assert.doesNotMatch(path, /(^|\/)\.pi\//);
       assert.doesNotMatch(path, /credential|auth\.json|secret/i);
     }
+  });
+
+  it("published extension only uses Pi-supported virtual module entrypoints", () => {
+    const srcDir = join(root, "src");
+    const files = readdirSync(srcDir).filter((name) => name.endsWith(".ts"));
+    const runtimeDeepApiImport =
+      /(?:^|\n)import\s+(?!type\b)[^;]*from\s+["']@earendil-works\/pi-ai\/api\//;
+    for (const file of files) {
+      const source = readFileSync(join(srcDir, file), "utf8");
+      assert.doesNotMatch(source, runtimeDeepApiImport, file);
+    }
+    const provider = readFileSync(join(srcDir, "provider.ts"), "utf8");
+    assert.match(provider, /from\s+["']@earendil-works\/pi-ai\/compat["']/);
   });
 });

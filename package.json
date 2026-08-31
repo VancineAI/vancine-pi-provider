@@ -1,6 +1,6 @@
 {
   "name": "pi-provider-vancine",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Pi extension that registers Vancine in /login and loads OpenAI-compatible chat models into /model from Vancine's dynamic catalog.",
   "type": "module",
   "private": false,
