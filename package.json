@@ -1,0 +1,59 @@
+{
+  "name": "pi-provider-vancine",
+  "version": "0.1.0",
+  "description": "Pi extension that registers Vancine in /login and loads OpenAI-compatible chat models into /model from Vancine's dynamic catalog.",
+  "type": "module",
+  "private": false,
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "pi-provider",
+    "vancine",
+    "coding-agent",
+    "openai-compatible",
+    "llm"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fx247562340/vancine-pi-provider.git"
+  },
+  "homepage": "https://vancine.com/docs/agents",
+  "bugs": {
+    "url": "https://github.com/fx247562340/vancine-pi-provider/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "src",
+    "docs",
+    "LICENSE",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "pack:dry": "npm pack --dry-run"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-ai": "0.84.4",
+    "@earendil-works/pi-coding-agent": "0.84.4",
+    "@types/node": "^22.18.0",
+    "typescript": "^5.9.2"
+  }
+}
