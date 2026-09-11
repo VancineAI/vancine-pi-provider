@@ -35,7 +35,7 @@ The live source is `GET https://vancine.com/api/pi/catalog`. See [docs/catalog-e
 - If a later catalog request fails, Pi keeps the last successful cached catalog, including a cached empty list. This extension does not overwrite a valid cache with fallback models.
 - The four-model fallback is used only when there is no cache at all, network refresh is allowed, and that first catalog request fails:
   - `hy4-preview`
-  - `deepseek-v4-flash-vision-exp`
+  - `deepseek-flash`
   - `glm-5.3-flash`
   - `qwen3.8-flash`
 - Offline startup without a cache shows no Vancine models until a network refresh is attempted.
@@ -91,7 +91,8 @@ The catalog is not guaranteed to be realtime and can fail. Fallback models are a
 **Compatibility errors**
 
 - Vancine Chat Completions is OpenAI-compatible. This provider sets `supportsDeveloperRole: false` so Pi sends `system` instead of `developer`.
-- `supportsReasoningEffort` is not force-disabled. If a specific model rejects a reasoning parameter, report it with the model id and error text (redact the key).
+- `supportsReasoningEffort` is not force-disabled. In the offline fallback only `deepseek-flash` declares it as `true` (a verified Vancine Chat Completions fact); every other model leaves it unset so Pi's own default still applies. The live catalog carries the same per-model value.
+- If a specific model rejects a reasoning parameter, report it with the model id and error text (redact the key).
 
 ## Update
 

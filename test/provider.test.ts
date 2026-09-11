@@ -67,6 +67,34 @@ describe("dynamic catalog refresh", () => {
     assert.equal(JSON.stringify(refresh.persisted).toLowerCase().includes("authorization"), false);
   });
 
+  it("publishes the online catalog alone, without any fallback model", async () => {
+    const provider = createVancineProvider({
+      transport: async () =>
+        jsonResponse(
+          catalog([
+            chatModel({
+              id: "deepseek-flash",
+              name: "DeepSeek V4.1 Flash",
+              input: ["text", "image"],
+              reasoning: true,
+              contextWindow: 1_000_000,
+              maxTokens: 384_000,
+              cost: { input: 0.24, output: 0.96, cacheRead: 0.0048, cacheWrite: 0 },
+              compat: { supportsDeveloperRole: false, supportsReasoningEffort: true },
+            }),
+          ]),
+          { etag: '"v2"' },
+        ),
+    });
+    await runRefresh(provider, mockRefresh({ credential, force: true }).context);
+    assert.deepEqual(ids(provider), ["deepseek-flash"]);
+    for (const id of ["hy4-preview", "glm-5.3-flash", "qwen3.8-flash"]) {
+      assert.equal(ids(provider).includes(id), false, `${id} must not leak in while the catalog succeeded`);
+    }
+    const model = provider.getModels()[0]!;
+    assert.equal((model.compat as { supportsReasoningEffort?: boolean }).supportsReasoningEffort, true);
+  });
+
   it("adds newly compatible models after a later refresh", async () => {
     const payloads = [
       catalog([chatModel({ id: "a" })]),
@@ -166,7 +194,7 @@ describe("dynamic catalog refresh", () => {
     await assert.rejects(() => runRefresh(provider, refresh.context), CatalogError);
     assert.deepEqual(ids(provider), [
       "hy4-preview",
-      "deepseek-v4-flash-vision-exp",
+      "deepseek-flash",
       "glm-5.3-flash",
       "qwen3.8-flash",
     ]);
@@ -284,7 +312,7 @@ describe("dynamic catalog refresh", () => {
     await assert.rejects(() => runRefresh(provider, refresh.context), /timed out/);
     assert.deepEqual(ids(provider), [
       "hy4-preview",
-      "deepseek-v4-flash-vision-exp",
+      "deepseek-flash",
       "glm-5.3-flash",
       "qwen3.8-flash",
     ]);
@@ -453,7 +481,7 @@ describe("empty catalog vs missing cache", () => {
     );
     assert.deepEqual(ids(provider), [
       "hy4-preview",
-      "deepseek-v4-flash-vision-exp",
+      "deepseek-flash",
       "glm-5.3-flash",
       "qwen3.8-flash",
     ]);
@@ -609,7 +637,7 @@ describe("rejected cache is not a valid empty catalog", () => {
     );
     assert.deepEqual(ids(provider), [
       "hy4-preview",
-      "deepseek-v4-flash-vision-exp",
+      "deepseek-flash",
       "glm-5.3-flash",
       "qwen3.8-flash",
     ]);

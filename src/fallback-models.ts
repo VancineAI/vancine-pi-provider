@@ -15,15 +15,18 @@ const VANCINE_COMPAT = {
   supportsDeveloperRole: false,
 } as const;
 
+type VancineCompat = NonNullable<VancineChatModel["compat"]>;
+
 function vancineModel(
   model: Omit<VancineChatModel, "api" | "provider" | "baseUrl" | "compat">,
+  compatOverrides?: Partial<VancineCompat>,
 ): VancineChatModel {
   return {
     ...model,
     api: "openai-completions",
     provider: PROVIDER_ID,
     baseUrl: BASE_URL,
-    compat: { ...VANCINE_COMPAT },
+    compat: { ...VANCINE_COMPAT, ...compatOverrides },
   };
 }
 
@@ -38,6 +41,10 @@ function vancineModel(
  * Field sources are recorded in FALLBACK_MODEL_FACTS. cacheWrite is 0 because
  * the snapshot sources did not publish a cache-write USD/MTok rate (n/a), not
  * because a rate was guessed.
+ *
+ * compat comes from the same source as the live catalog: every model keeps
+ * supportsDeveloperRole false, and only deepseek-flash adds
+ * supportsReasoningEffort true (verified Vancine Chat Completions fact).
  */
 export const FALLBACK_MODELS: readonly VancineChatModel[] = [
   vancineModel({
@@ -49,21 +56,24 @@ export const FALLBACK_MODELS: readonly VancineChatModel[] = [
     contextWindow: 1_024_000,
     maxTokens: 64_000,
   }),
-  vancineModel({
-    id: "deepseek-v4-flash-vision-exp",
-    name: "DeepSeek V4 Flash Vision Exp",
-    reasoning: true,
-    input: ["text", "image"],
-    cost: { input: 0.22, output: 0.66, cacheRead: 0.007, cacheWrite: 0 },
-    contextWindow: 1_000_000,
-    maxTokens: 384_000,
-  }),
+  vancineModel(
+    {
+      id: "deepseek-flash",
+      name: "DeepSeek V4.1 Flash",
+      reasoning: true,
+      input: ["text", "image"],
+      cost: { input: 0.24, output: 0.96, cacheRead: 0.0048, cacheWrite: 0 },
+      contextWindow: 1_000_000,
+      maxTokens: 384_000,
+    },
+    { supportsReasoningEffort: true },
+  ),
   vancineModel({
     id: "glm-5.3-flash",
     name: "GLM-5.3-Flash",
     reasoning: true,
     input: ["text", "image"],
-    cost: { input: 0.06, output: 0.2, cacheRead: 0.012, cacheWrite: 0 },
+    cost: { input: 0.12, output: 0.4, cacheRead: 0.024, cacheWrite: 0 },
     contextWindow: 1_000_000,
     maxTokens: 131_072,
   }),
@@ -108,52 +118,55 @@ export const FALLBACK_MODEL_FACTS: Record<(typeof FALLBACK_MODEL_IDS)[number], M
     },
     kind: "fallback-snapshot",
   },
-  "deepseek-v4-flash-vision-exp": {
+  "deepseek-flash": {
     urlOrPath:
-      "vancine-models-dev/models.dev/models/deepseek/deepseek-v4-flash-vision-exp.toml + providers/vancine/models/deepseek-v4-flash-vision-exp.toml; live GET https://vancine.com/api/pricing 2026-08-31T08:00:34Z",
-    accessedAt: "2026-08-31T08:00:34Z",
+      "vancine-models-dev/models.dev/models/deepseek/deepseek-v4.1-flash.toml + providers/vancine/models/deepseek-flash.toml; live GET https://vancine.com/api/pricing 2026-09-11T02:09:31Z; platform Pi registry service/pi_catalog_registry.go (Vancine 2.6.0)",
+    accessedAt: "2026-09-11T02:09:31Z",
     original: {
-      name: "DeepSeek V4 Flash Vision Exp",
+      name: "DeepSeek V4.1 Flash",
       reasoning: true,
       modalities_input: ["text", "image"],
       limit_context: 1_000_000,
       limit_output: 384_000,
-      vancine_cost_usd_mtok: { input: 0.22, output: 0.66, cache_read: 0.007, cache_write: "n/a" },
-      api_pricing_model_ratio: 0.11,
-      api_pricing_completion_ratio: 3,
-      api_pricing_cache_ratio: 0.031818181818,
-      api_pricing_tags: "Vision,Agent,Reasoning",
+      vancine_cost_usd_mtok: { input: 0.24, output: 0.96, cache_read: 0.0048, cache_write: "n/a" },
+      api_pricing_model_ratio: 0.12,
+      api_pricing_completion_ratio: 4,
+      api_pricing_cache_ratio: 0.02,
+      api_pricing_tags: "Coding,Agent,Reasoning,fast",
       api_pricing_supported_endpoint_types: ["openai"],
+      pi_catalog_supports_reasoning_effort: true,
     },
     converted: {
-      id: "deepseek-v4-flash-vision-exp",
-      name: "DeepSeek V4 Flash Vision Exp",
+      id: "deepseek-flash",
+      name: "DeepSeek V4.1 Flash",
       reasoning: true,
       input: ["text", "image"],
       contextWindow: 1_000_000,
       maxTokens: 384_000,
-      cost: { input: 0.22, output: 0.66, cacheRead: 0.007, cacheWrite: 0 },
-      compat: { supportsDeveloperRole: false },
+      cost: { input: 0.24, output: 0.96, cacheRead: 0.0048, cacheWrite: 0 },
+      compat: { supportsDeveloperRole: false, supportsReasoningEffort: true },
     },
     kind: "fallback-snapshot",
   },
   "glm-5.3-flash": {
     urlOrPath:
-      "vancine-models-dev/models.dev/models/zhipuai/glm-5.3-flash.toml + providers/vancine/models/glm-5.3-flash.toml; live GET https://models.dev/api.json provider=vancine and GET https://vancine.com/api/pricing 2026-08-31T08:00:34Z",
-    accessedAt: "2026-08-31T08:00:34Z",
+      "vancine-models-dev/models.dev/models/zhipuai/glm-5.3-flash.toml + providers/vancine/models/glm-5.3-flash.toml; live GET https://models.dev/api.json provider=vancine and GET https://vancine.com/api/pricing 2026-09-11T02:09:31Z",
+    accessedAt: "2026-09-11T02:09:31Z",
     original: {
       name: "GLM-5.3-Flash",
       reasoning: true,
       modalities_input: ["text", "image", "video", "pdf"],
       limit_context: 1_000_000,
       limit_output: 131_072,
-      vancine_cost_usd_mtok: { input: 0.06, output: 0.2, cache_read: 0.012, cache_write: "n/a" },
-      api_pricing_model_ratio: 0.03,
+      vancine_cost_usd_mtok: { input: 0.12, output: 0.4, cache_read: 0.024, cache_write: "n/a" },
+      api_pricing_model_ratio: 0.06,
       api_pricing_completion_ratio: 3.333333333333,
       api_pricing_cache_ratio: 0.2,
-      api_pricing_tags: "Vision,Agent,Reasoning",
+      api_pricing_tags: "Vision,Agent,Reasoning,fast",
       api_pricing_supported_endpoint_types: ["openai"],
       pi_input_note: "Pi Model.input only accepts text|image; video/pdf were dropped, image was kept from the source.",
+      vancine_price_note:
+        "The half-price promotion ended before this snapshot. input = model_ratio * 2 = 0.12; output = input * completion_ratio = 0.39999999999996, published as 0.40; cache_read = input * cache_ratio = 0.024.",
     },
     converted: {
       id: "glm-5.3-flash",
@@ -162,7 +175,7 @@ export const FALLBACK_MODEL_FACTS: Record<(typeof FALLBACK_MODEL_IDS)[number], M
       input: ["text", "image"],
       contextWindow: 1_000_000,
       maxTokens: 131_072,
-      cost: { input: 0.06, output: 0.2, cacheRead: 0.012, cacheWrite: 0 },
+      cost: { input: 0.12, output: 0.4, cacheRead: 0.024, cacheWrite: 0 },
       compat: { supportsDeveloperRole: false },
     },
     kind: "fallback-snapshot",

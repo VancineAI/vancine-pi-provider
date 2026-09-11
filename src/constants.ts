@@ -12,7 +12,7 @@ export const CATALOG_SCHEMA_VERSION = 1;
 
 export const FALLBACK_MODEL_IDS = [
   "hy4-preview",
-  "deepseek-v4-flash-vision-exp",
+  "deepseek-flash",
   "glm-5.3-flash",
   "qwen3.8-flash",
 ] as const;
