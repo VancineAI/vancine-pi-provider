@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-09-14
+
+### Changed
+
+- Transferred the source repository to the VancineAI GitHub organization.
+- Updated the package repository and issue tracker metadata to `https://github.com/VancineAI/vancine-pi-provider`.
+- No runtime code changed in this release.
+
 ## [0.1.2] - 2026-09-11
 
 ### Changed

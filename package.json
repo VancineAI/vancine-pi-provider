@@ -1,6 +1,6 @@
 {
   "name": "pi-provider-vancine",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Pi extension that registers Vancine in /login and loads OpenAI-compatible chat models into /model from Vancine's dynamic catalog.",
   "type": "module",
   "private": false,
@@ -19,11 +19,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/fx247562340/vancine-pi-provider.git"
+    "url": "git+https://github.com/VancineAI/vancine-pi-provider.git"
   },
   "homepage": "https://vancine.com/docs/agents",
   "bugs": {
-    "url": "https://github.com/fx247562340/vancine-pi-provider/issues"
+    "url": "https://github.com/VancineAI/vancine-pi-provider/issues"
   },
   "publishConfig": {
     "access": "public"
