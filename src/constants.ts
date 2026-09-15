@@ -12,9 +12,12 @@ export const CATALOG_SCHEMA_VERSION = 1;
 
 export const FALLBACK_MODEL_IDS = [
   "hy4-preview",
-  "deepseek-flash",
+  "deepseek-v4.1-flash",
   "glm-5.3-flash",
   "qwen3.8-flash",
 ] as const;
+
+/** Exact retired Vancine catalog ID. Not an alias and not a prefix match. */
+export const RETIRED_VANCINE_MODEL_ID = "deepseek-flash";
 
 export type FallbackModelId = (typeof FALLBACK_MODEL_IDS)[number];

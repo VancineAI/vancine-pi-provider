@@ -16,7 +16,7 @@ The number of models is not fixed. A successful response is the current compatib
 - No API key required. If a future revision requires a key, send `Authorization` only to `https://vancine.com`.
 - Supports `ETag` / `If-None-Match` and `Last-Modified` / `If-Modified-Since`.
 - Returns `304 Not Modified` when the body is unchanged.
-- This client refreshes at most every 4 hours unless Pi requests a forced refresh.
+- While Pi has this extension loaded, the client refreshes at most every 4 hours unless that Pi session requests a forced catalog refresh. A cached `deepseek-flash` entry also triggers a full (non-conditional) fetch. Pi 0.85.1 `pi update --models` does not load third-party extensions and does not refresh this client.
 
 ## Response
 

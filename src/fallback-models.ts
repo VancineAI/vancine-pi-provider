@@ -43,7 +43,7 @@ function vancineModel(
  * because a rate was guessed.
  *
  * compat comes from the same source as the live catalog: every model keeps
- * supportsDeveloperRole false, and only deepseek-flash adds
+ * supportsDeveloperRole false, and only deepseek-v4.1-flash adds
  * supportsReasoningEffort true (verified Vancine Chat Completions fact).
  */
 export const FALLBACK_MODELS: readonly VancineChatModel[] = [
@@ -58,7 +58,7 @@ export const FALLBACK_MODELS: readonly VancineChatModel[] = [
   }),
   vancineModel(
     {
-      id: "deepseek-flash",
+      id: "deepseek-v4.1-flash",
       name: "DeepSeek V4.1 Flash",
       reasoning: true,
       input: ["text", "image"],
@@ -118,10 +118,10 @@ export const FALLBACK_MODEL_FACTS: Record<(typeof FALLBACK_MODEL_IDS)[number], M
     },
     kind: "fallback-snapshot",
   },
-  "deepseek-flash": {
+  "deepseek-v4.1-flash": {
     urlOrPath:
-      "vancine-models-dev/models.dev/models/deepseek/deepseek-v4.1-flash.toml + providers/vancine/models/deepseek-flash.toml; live GET https://vancine.com/api/pricing 2026-09-11T02:09:31Z; platform Pi registry service/pi_catalog_registry.go (Vancine 2.6.0)",
-    accessedAt: "2026-09-11T02:09:31Z",
+      "DeepSeek lab model models/deepseek/deepseek-v4.1-flash.toml and official API docs/capability parameters verified 2026-09-11; planned Vancine provider entry providers/vancine/models/deepseek-v4.1-flash.toml (local prep, not yet in the public Models.dev API); Vancine current platform ID deepseek-v4.1-flash, live ratios, and openai endpoint re-verified from GET https://vancine.com/api/pricing 2026-09-15T07:51:35Z; platform Pi registry service/pi_catalog_registry.go",
+    accessedAt: "2026-09-15T07:51:35Z",
     original: {
       name: "DeepSeek V4.1 Flash",
       reasoning: true,
@@ -137,7 +137,7 @@ export const FALLBACK_MODEL_FACTS: Record<(typeof FALLBACK_MODEL_IDS)[number], M
       pi_catalog_supports_reasoning_effort: true,
     },
     converted: {
-      id: "deepseek-flash",
+      id: "deepseek-v4.1-flash",
       name: "DeepSeek V4.1 Flash",
       reasoning: true,
       input: ["text", "image"],

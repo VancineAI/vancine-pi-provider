@@ -9,6 +9,35 @@ import { catalog, chatModel, FAKE_KEY, hangingTransport, jsonResponse, mockRefre
 
 const credential = { type: "api_key" as const, key: FAKE_KEY };
 
+function cachedDeepSeekFlash() {
+  return {
+    id: "deepseek-flash",
+    name: "DeepSeek V4.1 Flash",
+    api: "openai-completions" as const,
+    provider: "vancine",
+    baseUrl: BASE_URL,
+    reasoning: true,
+    input: ["text", "image"] as ("text" | "image")[],
+    cost: { input: 0.24, output: 0.96, cacheRead: 0.0048, cacheWrite: 0 },
+    contextWindow: 1_000_000,
+    maxTokens: 384_000,
+    compat: { supportsDeveloperRole: false, supportsReasoningEffort: true },
+  };
+}
+
+function liveDeepSeekV41Flash() {
+  return chatModel({
+    id: "deepseek-v4.1-flash",
+    name: "DeepSeek V4.1 Flash",
+    input: ["text", "image"],
+    reasoning: true,
+    contextWindow: 1_000_000,
+    maxTokens: 384_000,
+    cost: { input: 0.24, output: 0.96, cacheRead: 0.0048, cacheWrite: 0 },
+    compat: { supportsDeveloperRole: false, supportsReasoningEffort: true },
+  });
+}
+
 function ids(provider: ReturnType<typeof createVancineProvider>): string[] {
   return provider.getModels().map((model) => model.id);
 }
@@ -73,7 +102,7 @@ describe("dynamic catalog refresh", () => {
         jsonResponse(
           catalog([
             chatModel({
-              id: "deepseek-flash",
+              id: "deepseek-v4.1-flash",
               name: "DeepSeek V4.1 Flash",
               input: ["text", "image"],
               reasoning: true,
@@ -87,7 +116,7 @@ describe("dynamic catalog refresh", () => {
         ),
     });
     await runRefresh(provider, mockRefresh({ credential, force: true }).context);
-    assert.deepEqual(ids(provider), ["deepseek-flash"]);
+    assert.deepEqual(ids(provider), ["deepseek-v4.1-flash"]);
     for (const id of ["hy4-preview", "glm-5.3-flash", "qwen3.8-flash"]) {
       assert.equal(ids(provider).includes(id), false, `${id} must not leak in while the catalog succeeded`);
     }
@@ -147,6 +176,216 @@ describe("dynamic catalog refresh", () => {
     );
   });
 
+  it("migrates a fresh cache that still contains deepseek-flash without sending old validators", async () => {
+    const headers: Array<Record<string, string> | undefined> = [];
+    const provider = createVancineProvider({
+      refreshIntervalMs: 60_000,
+      transport: async (_url, init) => {
+        headers.push(init.headers);
+        return jsonResponse(catalog([liveDeepSeekV41Flash(), chatModel({ id: "hy4-preview" })]), {
+          etag: '"v41"',
+        });
+      },
+    });
+    const refresh = mockRefresh({
+      credential,
+      stored: {
+        models: [cachedDeepSeekFlash()],
+        checkedAt: Date.now(),
+        etag: '"old-flash"',
+        lastModified: 1_700_000_000_000,
+      },
+    });
+    await runRefresh(provider, refresh.context);
+    assert.equal(headers.length, 1);
+    assert.equal(headers[0]?.["If-None-Match"], undefined);
+    assert.equal(headers[0]?.["If-Modified-Since"], undefined);
+    assert.deepEqual(ids(provider), ["deepseek-v4.1-flash", "hy4-preview"]);
+    assert.equal(ids(provider).includes("deepseek-flash"), false);
+    assert.deepEqual(
+      refresh.persisted?.models.map((model) => model.id),
+      ["deepseek-v4.1-flash", "hy4-preview"],
+    );
+  });
+
+  it("drops retired deepseek-flash on migration failure but keeps other cached models and retries later", async () => {
+    const firstProvider = createVancineProvider({
+      refreshIntervalMs: 60_000,
+      transport: async () => {
+        throw new Error("ECONNRESET");
+      },
+    });
+    const first = mockRefresh({
+      credential,
+      stored: {
+        models: [cachedDeepSeekFlash(), FALLBACK_MODELS[0]!],
+        checkedAt: Date.now(),
+        etag: '"old-flash"',
+      },
+    });
+    await assert.rejects(() => runRefresh(firstProvider, first.context), CatalogError);
+    assert.deepEqual(ids(firstProvider), ["hy4-preview"]);
+    assert.equal(ids(firstProvider).includes("deepseek-flash"), false);
+    assert.deepEqual(
+      first.persisted?.models.map((model) => model.id),
+      ["hy4-preview"],
+    );
+    assert.equal(first.persisted?.checkedAt, undefined);
+    assert.equal(first.persisted?.etag, undefined);
+    assert.equal(
+      first.persisted?.models.some((model) => FALLBACK_MODELS.some((fallback) => fallback.id === model.id) && model.id !== "hy4-preview"),
+      false,
+    );
+
+    let calls = 0;
+    const retryProvider = createVancineProvider({
+      refreshIntervalMs: 60_000,
+      transport: async () => {
+        calls += 1;
+        return jsonResponse(
+          catalog([chatModel({ id: "hy4-preview" }), liveDeepSeekV41Flash(), chatModel({ id: "glm-5.3-flash" })]),
+        );
+      },
+    });
+    const retry = mockRefresh({
+      credential,
+      stored: first.persisted ?? undefined,
+    });
+    await runRefresh(retryProvider, retry.context);
+    assert.equal(calls, 1);
+    assert.deepEqual(ids(retryProvider), ["hy4-preview", "deepseek-v4.1-flash", "glm-5.3-flash"]);
+    assert.equal(ids(retryProvider).includes("deepseek-flash"), false);
+  });
+
+  it("does not restore deepseek-flash or persist credentials when a migration is aborted", async () => {
+    const controller = new AbortController();
+    let started: () => void = () => {};
+    const sawRequest = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const provider = createVancineProvider({
+      refreshIntervalMs: 60_000,
+      transport: async (url, init) => {
+        started();
+        return hangingTransport()(url, init);
+      },
+    });
+    const refresh = mockRefresh({
+      credential,
+      signal: controller.signal,
+      stored: {
+        models: [cachedDeepSeekFlash(), FALLBACK_MODELS[0]!],
+        checkedAt: Date.now(),
+        etag: '"old-flash"',
+      },
+    });
+    const pending = runRefresh(provider, refresh.context);
+    await sawRequest;
+    controller.abort();
+    await pending;
+    assert.equal(ids(provider).includes("deepseek-flash"), false);
+    assert.deepEqual(ids(provider), ["hy4-preview"]);
+    assert.equal(JSON.stringify(refresh.persistCalls).includes(FAKE_KEY), false);
+    assert.equal(JSON.stringify(refresh.persisted).includes(FAKE_KEY), false);
+    if (refresh.persisted) {
+      assert.equal(
+        refresh.persisted.models.some((model) => model.id === "deepseek-flash"),
+        false,
+      );
+      assert.equal(refresh.persisted.checkedAt, undefined);
+    }
+  });
+
+  it("treats a 304 during retired-id migration as failure and retries later", async () => {
+    const headers: Array<Record<string, string> | undefined> = [];
+    const firstProvider = createVancineProvider({
+      refreshIntervalMs: 60_000,
+      transport: async (_url, init) => {
+        headers.push(init.headers);
+        return new Response(null, { status: 304, headers: { etag: '"stale"' } });
+      },
+    });
+    const first = mockRefresh({
+      credential,
+      stored: {
+        models: [cachedDeepSeekFlash(), FALLBACK_MODELS[0]!],
+        checkedAt: Date.now(),
+        etag: '"old-flash"',
+        lastModified: 1_700_000_000_000,
+      },
+    });
+    await assert.rejects(() => runRefresh(firstProvider, first.context), CatalogError);
+    assert.equal(headers.length, 1);
+    assert.equal(headers[0]?.["If-None-Match"], undefined);
+    assert.equal(headers[0]?.["If-Modified-Since"], undefined);
+    assert.deepEqual(ids(firstProvider), ["hy4-preview"]);
+    assert.equal(ids(firstProvider).includes("deepseek-flash"), false);
+    assert.deepEqual(
+      first.persisted?.models.map((model) => model.id),
+      ["hy4-preview"],
+    );
+    assert.equal(first.persisted?.checkedAt, undefined);
+    assert.equal(first.persisted?.etag, undefined);
+    assert.equal(first.persisted?.lastModified, undefined);
+
+    let calls = 0;
+    const retryProvider = createVancineProvider({
+      refreshIntervalMs: 60_000,
+      transport: async () => {
+        calls += 1;
+        return jsonResponse(catalog([chatModel({ id: "hy4-preview" }), liveDeepSeekV41Flash()]));
+      },
+    });
+    await runRefresh(
+      retryProvider,
+      mockRefresh({ credential, stored: first.persisted ?? undefined }).context,
+    );
+    assert.equal(calls, 1);
+    assert.deepEqual(ids(retryProvider), ["hy4-preview", "deepseek-v4.1-flash"]);
+  });
+
+  it("drops deepseek-flash from a 200 catalog that also contains the new id", async () => {
+    const provider = createVancineProvider({
+      transport: async () =>
+        jsonResponse(
+          catalog([
+            chatModel({ id: "deepseek-flash", name: "stale" }),
+            liveDeepSeekV41Flash(),
+            chatModel({ id: "hy4-preview" }),
+          ]),
+          { etag: '"mixed"' },
+        ),
+    });
+    const refresh = mockRefresh({ credential, force: true });
+    await runRefresh(provider, refresh.context);
+    assert.deepEqual(ids(provider), ["deepseek-v4.1-flash", "hy4-preview"]);
+    assert.deepEqual(
+      refresh.persisted?.models.map((model) => model.id),
+      ["deepseek-v4.1-flash", "hy4-preview"],
+    );
+    assert.equal(refresh.persisted?.etag, '"mixed"');
+  });
+
+  it("persists an empty catalog when a 200 response is only the retired id", async () => {
+    const provider = createVancineProvider({
+      refreshIntervalMs: 0,
+      transport: async () =>
+        jsonResponse(catalog([chatModel({ id: "deepseek-flash" })]), { etag: '"only-retired"' }),
+    });
+    const refresh = mockRefresh({
+      credential,
+      stored: { models: [FALLBACK_MODELS[0]!], checkedAt: 1, etag: '"hy4"' },
+      force: true,
+    });
+    await runRefresh(provider, refresh.context);
+    assert.deepEqual(ids(provider), []);
+    assert.deepEqual(refresh.persisted?.models, []);
+    assert.equal(refresh.persisted?.etag, '"only-retired"');
+    assert.ok((refresh.persisted?.checkedAt ?? 0) >= 1);
+    assert.equal(ids(provider).includes("hy4-preview"), false);
+    assert.equal(ids(provider).includes("glm-5.3-flash"), false);
+  });
+
   it("keeps the existing catalog on 304", async () => {
     const stored = {
       models: [
@@ -194,7 +433,7 @@ describe("dynamic catalog refresh", () => {
     await assert.rejects(() => runRefresh(provider, refresh.context), CatalogError);
     assert.deepEqual(ids(provider), [
       "hy4-preview",
-      "deepseek-flash",
+      "deepseek-v4.1-flash",
       "glm-5.3-flash",
       "qwen3.8-flash",
     ]);
@@ -312,7 +551,7 @@ describe("dynamic catalog refresh", () => {
     await assert.rejects(() => runRefresh(provider, refresh.context), /timed out/);
     assert.deepEqual(ids(provider), [
       "hy4-preview",
-      "deepseek-flash",
+      "deepseek-v4.1-flash",
       "glm-5.3-flash",
       "qwen3.8-flash",
     ]);
@@ -481,7 +720,7 @@ describe("empty catalog vs missing cache", () => {
     );
     assert.deepEqual(ids(provider), [
       "hy4-preview",
-      "deepseek-flash",
+      "deepseek-v4.1-flash",
       "glm-5.3-flash",
       "qwen3.8-flash",
     ]);
@@ -637,7 +876,7 @@ describe("rejected cache is not a valid empty catalog", () => {
     );
     assert.deepEqual(ids(provider), [
       "hy4-preview",
-      "deepseek-flash",
+      "deepseek-v4.1-flash",
       "glm-5.3-flash",
       "qwen3.8-flash",
     ]);

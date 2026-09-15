@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-09-15
+
+### Changed
+
+- Updated the Vancine offline fallback model ID from `deepseek-flash` to `deepseek-v4.1-flash`, matching the production Vancine Pi catalog.
+- Clarified that Pi 0.85.1's standalone `pi update --models` does not load third-party extensions and therefore does not refresh this provider.
+
+### Fixed
+
+- Added cache migration for the retired `deepseek-flash` ID. A fresh legacy cache now bypasses the four-hour window and performs an unconditional catalog refresh.
+- Removed the retired ID from restored caches and live catalog responses without creating an alias or rewriting it to the replacement ID.
+- Preserved other valid cached models and kept the catalog eligible for retry when migration refresh fails, is aborted, or receives an invalid unconditional `304`.
+
 ## [0.1.3] - 2026-09-14
 
 ### Changed

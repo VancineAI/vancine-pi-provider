@@ -24,6 +24,22 @@ describe("package manifest", () => {
     assert.ok(pkg.keywords?.includes("pi-package"));
   });
 
+  it("does not tell users that pi update --models refreshes this third-party provider", () => {
+    const readme = readFileSync(join(root, "README.md"), "utf8");
+    assert.match(
+      readme,
+      /standalone `pi update --models`[\s\S]*does not load third-party extensions/,
+    );
+    assert.equal(
+      /use Pi's official forced model refresh \(for example `pi update --models`\)/.test(readme),
+      false,
+    );
+    assert.equal(
+      /After the platform catalog publishes the new ID, use Pi's official forced model refresh/.test(readme),
+      false,
+    );
+  });
+
   it("points pi.extensions at the real TypeScript entry", () => {
     assert.deepEqual(pkg.pi?.extensions, ["./src/index.ts"]);
     readFileSync(join(root, "src/index.ts"), "utf8");

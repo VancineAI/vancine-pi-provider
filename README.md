@@ -29,13 +29,14 @@ Then start Pi.
 
 The live source is `GET https://vancine.com/api/pi/catalog`. See [docs/catalog-endpoint.md](docs/catalog-endpoint.md).
 
-- This provider refreshes the catalog at most every 4 hours, and sends `If-None-Match` / `If-Modified-Since` when it already has validators.
-- A forced refresh is whatever Pi itself supports, such as `pi update --models`. This package does not add a separate refresh command.
+- While Pi has this extension loaded, the provider refreshes the catalog at most every 4 hours, and sends `If-None-Match` / `If-Modified-Since` when it already has validators.
+- Pi 0.85.1's standalone `pi update --models` creates a ModelRuntime from built-in providers only. It does not load third-party extensions, so it cannot refresh Vancine immediately. This package does not add a separate refresh command and does not claim that Pi upstream can force-refresh third-party catalogs on its own.
+- A cached `deepseek-flash` entry is treated as retired. On the next catalog refresh while this extension is loaded, the provider bypasses the four-hour window, fetches the current catalog without the old validators, and drops that ID. It does not alias or rewrite the old ID. Do not edit or delete `~/.pi/agent/models-store.json` by hand.
 - When a catalog request succeeds, `/model` shows the compatible Chat Completions models from that response, including a legitimate empty list.
 - If a later catalog request fails, Pi keeps the last successful cached catalog, including a cached empty list. This extension does not overwrite a valid cache with fallback models.
 - The four-model fallback is used only when there is no cache at all, network refresh is allowed, and that first catalog request fails:
   - `hy4-preview`
-  - `deepseek-flash`
+  - `deepseek-v4.1-flash`
   - `glm-5.3-flash`
   - `qwen3.8-flash`
 - Offline startup without a cache shows no Vancine models until a network refresh is attempted.
@@ -82,6 +83,13 @@ The catalog is not guaranteed to be realtime and can fail. Fallback models are a
 - First run without a cache, after a failed network refresh, uses the four offline snapshot models. That is not live sync.
 - The catalog can fail; it is not claimed to be always live.
 
+**Model list still shows a retired ID, or a renamed model is missing**
+
+- `deepseek-flash` is a retired Vancine ID. This provider migrates a cache that still contains it the next time Pi loads the extension and runs a catalog refresh: it fetches the live catalog without the old ETag, then keeps the server list. It does not map the old ID to a new one.
+- Pi 0.85.1 `pi update --models` does not load this extension, so it will not perform that migration. Starting Pi (or otherwise loading the extension so it can refresh) is what applies the cache migration.
+- Do not hand-edit or delete `~/.pi/agent/models-store.json`.
+- Updating the npm package does not by itself invent a model. If production `/api/pi/catalog` does not list the model, a package update cannot add it.
+
 **API key is invalid**
 
 - Create or copy a key from the Vancine console.
@@ -91,7 +99,7 @@ The catalog is not guaranteed to be realtime and can fail. Fallback models are a
 **Compatibility errors**
 
 - Vancine Chat Completions is OpenAI-compatible. This provider sets `supportsDeveloperRole: false` so Pi sends `system` instead of `developer`.
-- `supportsReasoningEffort` is not force-disabled. In the offline fallback only `deepseek-flash` declares it as `true` (a verified Vancine Chat Completions fact); every other model leaves it unset so Pi's own default still applies. The live catalog carries the same per-model value.
+- `supportsReasoningEffort` is not force-disabled. In the offline fallback only `deepseek-v4.1-flash` declares it as `true` (a verified Vancine Chat Completions fact); every other model leaves it unset so Pi's own default still applies. The live catalog carries the same per-model value.
 - If a specific model rejects a reasoning parameter, report it with the model id and error text (redact the key).
 
 ## Update

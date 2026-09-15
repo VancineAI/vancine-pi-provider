@@ -7,6 +7,7 @@ const RETIRED_DEEPSEEK_IDS = [
   "deepseek-v4-flash",
   "deepseek-v4-pro",
   "deepseek-v4-flash-vision-exp",
+  "deepseek-flash",
 ] as const;
 
 function byId(id: string) {
@@ -17,20 +18,20 @@ describe("fallback model facts", () => {
   it("contains exactly the four approved fallback ids in order", () => {
     assert.deepEqual(
       FALLBACK_MODELS.map((model) => model.id),
-      ["hy4-preview", "deepseek-flash", "glm-5.3-flash", "qwen3.8-flash"],
+      ["hy4-preview", "deepseek-v4.1-flash", "glm-5.3-flash", "qwen3.8-flash"],
     );
     assert.deepEqual([...FALLBACK_MODEL_IDS], FALLBACK_MODELS.map((model) => model.id));
   });
 
-  it("lists deepseek-flash and none of the retired deepseek ids", () => {
-    assert.ok(byId("deepseek-flash"), "deepseek-flash must be in the offline fallback");
+  it("lists deepseek-v4.1-flash and none of the retired deepseek ids", () => {
+    assert.ok(byId("deepseek-v4.1-flash"), "deepseek-v4.1-flash must be in the offline fallback");
     for (const retired of RETIRED_DEEPSEEK_IDS) {
       assert.equal(byId(retired), undefined, `${retired} must not return through fallback`);
     }
   });
 
   it("publishes the verified production prices for the refreshed models", () => {
-    assert.deepEqual(byId("deepseek-flash")?.cost, {
+    assert.deepEqual(byId("deepseek-v4.1-flash")?.cost, {
       input: 0.24,
       output: 0.96,
       cacheRead: 0.0048,
@@ -45,13 +46,13 @@ describe("fallback model facts", () => {
   });
 
   it("declares supportsReasoningEffort only where the catalog publishes it", () => {
-    assert.deepEqual(byId("deepseek-flash")?.compat, {
+    assert.deepEqual(byId("deepseek-v4.1-flash")?.compat, {
       supportsDeveloperRole: false,
       supportsReasoningEffort: true,
     });
     for (const model of FALLBACK_MODELS) {
       assert.equal(model.compat?.supportsDeveloperRole, false);
-      if (model.id === "deepseek-flash") {
+      if (model.id === "deepseek-v4.1-flash") {
         continue;
       }
       assert.equal(
@@ -91,14 +92,14 @@ describe("fallback model facts", () => {
 
   it("marks vision fallback models with image input and text-only hy4 without it", () => {
     assert.deepEqual(byId("hy4-preview")?.input, ["text"]);
-    assert.deepEqual(byId("deepseek-flash")?.input, ["text", "image"]);
+    assert.deepEqual(byId("deepseek-v4.1-flash")?.input, ["text", "image"]);
     assert.deepEqual(byId("glm-5.3-flash")?.input, ["text", "image"]);
     assert.deepEqual(byId("qwen3.8-flash")?.input, ["text", "image"]);
     assert.equal(byId("hy4-preview")?.reasoning, true);
-    assert.equal(byId("deepseek-flash")?.reasoning, true);
-    assert.equal(byId("deepseek-flash")?.name, "DeepSeek V4.1 Flash");
-    assert.equal(byId("deepseek-flash")?.contextWindow, 1_000_000);
-    assert.equal(byId("deepseek-flash")?.maxTokens, 384_000);
+    assert.equal(byId("deepseek-v4.1-flash")?.reasoning, true);
+    assert.equal(byId("deepseek-v4.1-flash")?.name, "DeepSeek V4.1 Flash");
+    assert.equal(byId("deepseek-v4.1-flash")?.contextWindow, 1_000_000);
+    assert.equal(byId("deepseek-v4.1-flash")?.maxTokens, 384_000);
   });
 
   it("records the verified api pricing ratios behind each refreshed cost", () => {
@@ -107,7 +108,7 @@ describe("fallback model facts", () => {
     assert.equal(glm.original.api_pricing_completion_ratio, 3.333333333333);
     assert.equal(glm.original.api_pricing_cache_ratio, 0.2);
 
-    const deepseek = FALLBACK_MODEL_FACTS["deepseek-flash"];
+    const deepseek = FALLBACK_MODEL_FACTS["deepseek-v4.1-flash"];
     assert.equal(deepseek.original.api_pricing_model_ratio, 0.12);
     assert.equal(deepseek.original.api_pricing_completion_ratio, 4);
     assert.equal(deepseek.original.api_pricing_cache_ratio, 0.02);

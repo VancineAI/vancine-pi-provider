@@ -14,6 +14,7 @@ import {
   CATALOG_URL,
   PROVIDER_ID,
   PROVIDER_NAME,
+  RETIRED_VANCINE_MODEL_ID,
 } from "./constants.ts";
 import { CatalogError, errorMessage } from "./errors.ts";
 import { FALLBACK_MODELS, type VancineChatModel } from "./fallback-models.ts";
@@ -126,6 +127,18 @@ export type RestoredCatalog =
   | { status: "valid"; models: VancineChatModel[] }
   | { status: "rejected"; models: [] };
 
+function isRetiredVancineModelId(id: string): boolean {
+  return id === RETIRED_VANCINE_MODEL_ID;
+}
+
+function withoutRetiredVancineModels(models: readonly VancineChatModel[]): VancineChatModel[] {
+  return models.filter((model) => !isRetiredVancineModelId(model.id));
+}
+
+function catalogContainsRetiredId(models: readonly { id: string }[]): boolean {
+  return models.some((model) => isRetiredVancineModelId(model.id));
+}
+
 export function restoreStoredCatalog(
   stored: ModelsStoreEntry | undefined,
   secret?: string,
@@ -188,7 +201,7 @@ export function createVancineProvider(options: VancineProviderOptions = {}): Pro
     } else if (restored.status === "valid") {
       const published = await context.publish({
         update: () => {
-          currentModels = restored.models;
+          currentModels = withoutRetiredVancineModels(restored.models);
         },
       });
       if (!published) {
@@ -196,12 +209,16 @@ export function createVancineProvider(options: VancineProviderOptions = {}): Pro
       }
     }
 
+    const migrateRetired =
+      restored.status === "valid" && catalogContainsRetiredId(restored.models);
+
     if (!context.allowNetwork || context.signal.aborted) {
       return;
     }
 
     if (
       !context.force &&
+      !migrateRetired &&
       restored.status === "valid" &&
       storedSnapshot?.checkedAt !== undefined &&
       Date.now() - storedSnapshot.checkedAt < refreshIntervalMs
@@ -209,7 +226,8 @@ export function createVancineProvider(options: VancineProviderOptions = {}): Pro
       return;
     }
 
-    const validators = restored.status === "valid" ? storedSnapshot : undefined;
+    const validators =
+      restored.status === "valid" && !migrateRetired ? storedSnapshot : undefined;
 
     try {
       const result = await fetchVancineCatalog({
@@ -222,12 +240,26 @@ export function createVancineProvider(options: VancineProviderOptions = {}): Pro
       });
 
       if (context.signal.aborted) {
+        if (migrateRetired && restored.status === "valid") {
+          await context.publish({
+            persist: { models: withoutRetiredVancineModels(restored.models) },
+            update: () => {
+              currentModels = withoutRetiredVancineModels(restored.models);
+            },
+          });
+        }
         return;
       }
 
       const checkedAt = Date.now();
 
       if (result.status === "not_modified") {
+        if (migrateRetired) {
+          throw new CatalogError(
+            "http",
+            "Catalog returned 304 during retired-id migration without validators",
+          );
+        }
         if (restored.status === "valid" && storedSnapshot) {
           await context.publish({
             persist: {
@@ -242,8 +274,9 @@ export function createVancineProvider(options: VancineProviderOptions = {}): Pro
       }
 
       const converted = convertVancineCatalog(result.payload);
+      const models = withoutRetiredVancineModels(converted.models);
       const entry: ModelsStoreEntry = {
-        models: converted.models,
+        models,
         checkedAt,
         lastModified: result.lastModified,
         etag: result.etag,
@@ -254,17 +287,34 @@ export function createVancineProvider(options: VancineProviderOptions = {}): Pro
       await context.publish({
         persist: entry,
         update: () => {
-          currentModels = converted.models;
+          currentModels = models;
         },
       });
     } catch (error) {
-      if (context.signal.aborted || (error instanceof CatalogError && error.code === "aborted")) {
+      const aborted =
+        context.signal.aborted || (error instanceof CatalogError && error.code === "aborted");
+      if (aborted) {
+        if (migrateRetired && restored.status === "valid") {
+          await context.publish({
+            persist: { models: withoutRetiredVancineModels(restored.models) },
+            update: () => {
+              currentModels = withoutRetiredVancineModels(restored.models);
+            },
+          });
+        }
         return;
       }
       if (restored.status === "missing" || restored.status === "rejected") {
         await context.publish({
           update: () => {
             currentModels = [...FALLBACK_MODELS];
+          },
+        });
+      } else if (migrateRetired) {
+        await context.publish({
+          persist: { models: withoutRetiredVancineModels(restored.models) },
+          update: () => {
+            currentModels = withoutRetiredVancineModels(restored.models);
           },
         });
       } else if (restored.status === "valid" && storedSnapshot !== undefined) {
